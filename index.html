@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>VERMIS ∞ — Figure 8</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap');
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --ink: #030608; --panel: rgba(3,6,10,0.96); --border: rgba(0,200,255,0.10);
+    --accent: #00cfff; --text: #6ab8cc; --label: #1a4a5a;
+  }
+  body { background: var(--ink); font-family: 'Share Tech Mono', monospace; color: var(--text); overflow: hidden; height: 100vh; width: 100vw; }
+  #cc { position: fixed; inset: 0; }
+  canvas { display: block; }
+
+  #hdr {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 10;
+    padding: 14px 22px; display: flex; align-items: baseline; gap: 16px;
+    background: linear-gradient(to bottom, rgba(3,6,10,0.98) 0%, transparent 100%);
+    pointer-events: none;
+  }
+  #hdr h1 { font-family: 'Orbitron', monospace; font-size: 13px; font-weight: 900; letter-spacing: 0.5em; color: var(--accent); text-shadow: 0 0 20px rgba(0,200,255,0.5); }
+  #hdr .sub { font-size: 8px; letter-spacing: 0.25em; color: var(--label); }
+  #hdr .chaos-meter {
+    margin-left: auto; font-size: 8px; letter-spacing: 0.2em; color: var(--accent);
+    opacity: 0.7; pointer-events: none;
+  }
+
+  /* Chaos pulse overlay */
+  #chaos-flash {
+    position: fixed; inset: 0; z-index: 5; pointer-events: none;
+    background: radial-gradient(ellipse at center, rgba(0,200,255,0.04) 0%, transparent 70%);
+    opacity: 0; transition: opacity 0.1s;
+  }
+
+  #tbtn {
+    position: fixed; top: 10px; right: 13px; z-index: 20;
+    background: var(--panel); border: 1px solid var(--border); color: var(--accent);
+    font-family: 'Share Tech Mono', monospace; font-size: 9px; letter-spacing: 0.18em;
+    text-transform: uppercase; padding: 8px 11px; border-radius: 2px; cursor: pointer;
+    backdrop-filter: blur(12px);
+  }
+
+  #panel {
+    position: fixed; top: 0; right: 0; bottom: 0; width: 234px;
+    background: var(--panel); border-left: 1px solid var(--border);
+    padding: 50px 15px 24px; z-index: 10; backdrop-filter: blur(16px);
+    overflow-y: auto; transition: transform 0.3s ease;
+    scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+  }
+  #panel.hidden { transform: translateX(100%); }
+
+  .pt {
+    font-family: 'Orbitron', monospace; font-size: 7px; letter-spacing: 0.38em;
+    color: var(--accent); text-transform: uppercase; margin-bottom: 11px;
+    border-bottom: 1px solid var(--border); padding-bottom: 7px;
+  }
+  .cg { margin-bottom: 12px; }
+  .cl {
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 9px; letter-spacing: 0.1em; color: var(--label);
+    text-transform: uppercase; margin-bottom: 5px;
+  }
+  .cl span { color: var(--accent); font-size: 10px; }
+  input[type=range] {
+    -webkit-appearance: none; appearance: none; width: 100%; height: 1px;
+    background: rgba(0,200,255,0.15); border-radius: 1px; outline: none; cursor: pointer;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 13px; height: 13px;
+    background: var(--ink); border: 2px solid var(--accent); border-radius: 50%; cursor: pointer;
+  }
+  .tr { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .tl { font-size: 9px; letter-spacing: 0.1em; color: var(--label); text-transform: uppercase; }
+  .tp {
+    position: relative; width: 36px; height: 18px; cursor: pointer;
+    background: rgba(0,200,255,0.06); border: 1px solid var(--border); border-radius: 9px;
+    transition: background 0.2s, border-color 0.2s;
+  }
+  .tp.on { background: rgba(0,200,255,0.18); border-color: var(--accent); }
+  .tp::after {
+    content: ''; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px;
+    border-radius: 50%; background: var(--label); transition: transform 0.2s, background 0.2s;
+  }
+  .tp.on::after { transform: translateX(18px); background: var(--accent); }
+  .dv { border: none; border-top: 1px solid var(--border); margin: 12px 0; }
+
+  /* Path mode selector */
+  .pmodes { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-bottom: 12px; }
+  .pm {
+    background: transparent; border: 1px solid var(--border); color: var(--label);
+    font-family: 'Share Tech Mono', monospace; font-size: 8px; letter-spacing: 0.05em;
+    padding: 8px 4px; border-radius: 2px; cursor: pointer; transition: all 0.15s;
+    text-transform: uppercase; text-align: center;
+  }
+  .pm:hover, .pm.active { background: rgba(0,200,255,0.08); border-color: var(--accent); color: var(--accent); }
+  .pm.active { box-shadow: 0 0 8px rgba(0,200,255,0.15); }
+
+  /* Chaos level display */
+  .chaos-bar-wrap { margin-bottom: 14px; }
+  .chaos-label { font-size: 8px; letter-spacing: 0.2em; color: var(--label); text-transform: uppercase; margin-bottom: 6px; display: flex; justify-content: space-between; }
+  .chaos-label span { color: var(--accent); }
+  .chaos-bar { height: 3px; background: rgba(0,200,255,0.08); border-radius: 2px; overflow: hidden; }
+  .chaos-fill { height: 100%; border-radius: 2px; background: linear-gradient(90deg, #00cfff, #ff00aa); width: 0%; transition: width 0.3s, background 0.5s; }
+
+  .ar { display: grid; grid-template-columns: repeat(3,1fr); gap: 4px; margin-bottom: 12px; }
+  .ab {
+    background: transparent; border: 1px solid var(--border); color: var(--label);
+    font-family: 'Share Tech Mono', monospace; font-size: 8px; letter-spacing: 0.05em;
+    padding: 7px 0; border-radius: 2px; cursor: pointer; transition: all 0.15s; text-transform: uppercase;
+  }
+  .ab:hover, .ab.active { background: rgba(0,200,255,0.08); border-color: var(--accent); color: var(--accent); }
+
+  .thr { display: grid; grid-template-columns: repeat(4,1fr); gap: 4px; margin-bottom: 4px; }
+  .ts {
+    height: 18px; border-radius: 2px; cursor: pointer; border: 2px solid transparent;
+    transition: border-color 0.15s, transform 0.1s;
+  }
+  .ts:hover { transform: scale(1.08); }
+  .ts.active { border-color: #fff; }
+
+  #rainbow-btn {
+    width: 100%; padding: 9px; margin-bottom: 12px; border-radius: 2px; cursor: pointer;
+    border: 1px solid var(--border); font-family: 'Share Tech Mono', monospace;
+    font-size: 9px; letter-spacing: 0.15em; text-transform: uppercase;
+    background: linear-gradient(90deg,#f00,#ff0,#0f0,#0ff,#00f,#f0f,#f00);
+    background-size: 200% 100%; color: #fff; text-shadow: 0 0 4px #000;
+  }
+  #rainbow-btn.active { animation: rainbowShift 2s linear infinite; border-color: #fff; }
+  @keyframes rainbowShift { 0%{background-position:0% 50%} 100%{background-position:200% 50%} }
+
+  #hint {
+    position: fixed; bottom: 13px; left: 50%; transform: translateX(-50%);
+    font-size: 8px; letter-spacing: 0.2em; color: var(--label);
+    text-transform: uppercase; pointer-events: none; opacity: 0.35; white-space: nowrap;
+    transition: opacity 1s;
+  }
+  body::after {
+    content:''; position:fixed; inset:0; pointer-events:none; z-index:50;
+    background: repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.02) 2px,rgba(0,0,0,0.02) 4px);
+  }
+</style>
+</head>
+<body>
+<div id="cc"></div>
+<div id="chaos-flash"></div>
+<div id="hdr">
+  <h1>VERMIS ∞</h1>
+  <div class="sub">figure eight · infinite chaos</div>
+  <div class="chaos-meter" id="chaos-meter">CHAOS: 0%</div>
+</div>
+<button id="tbtn">Controls</button>
+
+<div id="panel">
+
+  <div class="pt">Path Mode</div>
+  <div class="pmodes">
+    <button class="pm" data-path="circle">○ Circle</button>
+    <button class="pm active" data-path="fig8">∞ Figure 8</button>
+    <button class="pm" data-path="lissajous">⌇ Lissajous</button>
+    <button class="pm" data-path="trefoil">⌀ Trefoil</button>
+  </div>
+
+  <div class="pt">Chaos Engine</div>
+  <div class="chaos-bar-wrap">
+    <div class="chaos-label">Live chaos level <span id="chaos-live">0%</span></div>
+    <div class="chaos-bar"><div class="chaos-fill" id="chaos-fill"></div></div>
+  </div>
+  <div class="cg"><div class="cl">Chaos Amt <span id="chaos-val">0.00</span></div><input type="range" id="chaos" min="0" max="1" value="0" step="0.01"></div>
+  <div class="cg"><div class="cl">Chaos Rate <span id="crate-val">0.50</span></div><input type="range" id="crate" min="0.05" max="3" value="0.5" step="0.05"></div>
+  <div class="cg"><div class="cl">Burst Prob <span id="cburst-val">0.20</span></div><input type="range" id="cburst" min="0" max="1" value="0.2" step="0.01"></div>
+  <div class="tr"><div class="tl">Auto-chaos</div><div class="tp on" id="autochaos-tp"></div></div>
+  <div class="tr"><div class="tl">Path mutate</div><div class="tp on" id="mutate-tp"></div></div>
+
+  <div class="dv"></div>
+  <div class="pt">Tube</div>
+  <div class="cg"><div class="cl">Radius <span id="radius-val">1.8</span></div><input type="range" id="radius" min="0.3" max="5" value="1.8" step="0.05"></div>
+  <div class="cg"><div class="cl">Wall <span id="wall-val">0.20</span></div><input type="range" id="wall" min="0.05" max="1.2" value="0.2" step="0.01"></div>
+  <div class="cg"><div class="cl">Loop Count <span id="loops-val">2</span></div><input type="range" id="loops" min="1" max="6" value="2" step="1"></div>
+  <div class="cg"><div class="cl">Seg/Loop <span id="seg-val">120</span></div><input type="range" id="seg" min="30" max="240" value="120" step="4"></div>
+  <div class="cg"><div class="cl">Radial Res <span id="rres-val">36</span></div><input type="range" id="rres" min="8" max="64" value="36" step="4"></div>
+
+  <div class="dv"></div>
+  <div class="pt">Shape</div>
+  <div class="cg"><div class="cl">Scale <span id="loopR-val">9.0</span></div><input type="range" id="loopR" min="3" max="28" value="9" step="0.5"></div>
+  <div class="cg"><div class="cl">Tilt <span id="tilt-val">0.25</span></div><input type="range" id="tilt" min="0" max="1.5" value="0.25" step="0.01"></div>
+  <div class="cg"><div class="cl">Squeeze <span id="squeeze-val">1.00</span></div><input type="range" id="squeeze" min="0.3" max="2.5" value="1" step="0.01"></div>
+  <div class="cg"><div class="cl">Twist <span id="tw-val">4.00</span></div><input type="range" id="tw" min="0" max="16" value="4" step="0.1"></div>
+
+  <div class="dv"></div>
+  <div class="pt">Undulation</div>
+  <div class="cg"><div class="cl">Speed <span id="uspd-val">1.0</span></div><input type="range" id="uspd" min="0" max="5" value="1" step="0.05"></div>
+  <div class="cg"><div class="cl">Amplitude <span id="uamp-val">0.35</span></div><input type="range" id="uamp" min="0" max="2" value="0.35" step="0.02"></div>
+  <div class="cg"><div class="cl">Frequency <span id="ufreq-val">2.0</span></div><input type="range" id="ufreq" min="0.5" max="12" value="2" step="0.1"></div>
+  <div class="tr"><div class="tl">Radial pulse</div><div class="tp" id="pulse-tp"></div></div>
+  <div class="cg"><div class="cl">Pulse Amt <span id="pamt-val">0.12</span></div><input type="range" id="pamt" min="0" max="0.8" value="0.12" step="0.01"></div>
+
+  <div class="dv"></div>
+  <div class="pt">Inner Teeth</div>
+  <div class="cg"><div class="cl">Rows <span id="trows-val">24</span></div><input type="range" id="trows" min="0" max="120" value="24" step="1"></div>
+  <div class="cg"><div class="cl">Per Ring <span id="tcount-val">12</span></div><input type="range" id="tcount" min="3" max="64" value="12" step="1"></div>
+  <div class="cg"><div class="cl">Height <span id="th-val">0.5</span></div><input type="range" id="th" min="0.05" max="2.5" value="0.5" step="0.02"></div>
+  <div class="cg"><div class="cl">Base Width <span id="tw2-val">0.65</span></div><input type="range" id="tw2" min="0.1" max="1.0" value="0.65" step="0.01"></div>
+  <div class="tr"><div class="tl">Animate teeth</div><div class="tp" id="tanim-tp"></div></div>
+
+  <div class="dv"></div>
+  <div class="pt">Appearance</div>
+  <button id="rainbow-btn">⬡ Rainbow Mode</button>
+  <div class="cg"><div class="cl">Rainbow Speed <span id="rspd-val">0.7</span></div><input type="range" id="rspd" min="0.05" max="4" value="0.7" step="0.05"></div>
+  <div class="cg"><div class="cl">Rainbow Cycles <span id="rcyc-val">5</span></div><input type="range" id="rcyc" min="0.5" max="14" value="5" step="0.5"></div>
+  <div class="thr">
+    <div class="ts" data-theme="bio"   style="background:linear-gradient(135deg,#0f4,#040)"></div>
+    <div class="ts" data-theme="blood" style="background:linear-gradient(135deg,#f04,#400)"></div>
+    <div class="ts" data-theme="void"  style="background:linear-gradient(135deg,#80f,#208)"></div>
+    <div class="ts" data-theme="gold"  style="background:linear-gradient(135deg,#fd0,#840)"></div>
+    <div class="ts" data-theme="ice"   style="background:linear-gradient(135deg,#0df,#048)"></div>
+    <div class="ts active" data-theme="plasma" style="background:linear-gradient(135deg,#0ff,#f0f)"></div>
+    <div class="ts" data-theme="lava"  style="background:linear-gradient(135deg,#f80,#f20)"></div>
+    <div class="ts" data-theme="mono"  style="background:linear-gradient(135deg,#aaa,#222)"></div>
+  </div>
+  <div class="cg" style="margin-top:10px"><div class="cl">Opacity <span id="opa-val">0.90</span></div><input type="range" id="opa" min="0.1" max="1" value="0.9" step="0.01"></div>
+  <div class="cg"><div class="cl">Emissive <span id="emi-val">0.65</span></div><input type="range" id="emi" min="0" max="1" value="0.65" step="0.01"></div>
+  <div class="tr"><div class="tl">Wireframe</div><div class="tp" id="wire-tp"></div></div>
+
+  <div class="dv"></div>
+  <div class="pt">Camera</div>
+  <div class="cg"><div class="cl">Fly Speed <span id="flyspd-val">1.0</span></div><input type="range" id="flyspd" min="0.05" max="5" value="1" step="0.05"></div>
+  <div class="cg"><div class="cl">Cam Offset <span id="camoff-val">0.4</span></div><input type="range" id="camoff" min="0" max="3" value="0.4" step="0.05"></div>
+  <div class="cg"><div class="cl">FOV <span id="fov-val">80</span></div><input type="range" id="fov" min="40" max="140" value="80" step="1"></div>
+  <div class="ar">
+    <button class="ab" data-axis="free">Free</button>
+    <button class="ab" data-axis="side">Side</button>
+    <button class="ab" data-axis="top">Top</button>
+    <button class="ab active" data-axis="fly">∞ Fly</button>
+  </div>
+</div>
+
+<div id="hint">flying the figure eight · chaos breeds unpredictability</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+<script>
+// ── RENDERER ──
+const cont = document.getElementById('cc');
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setClearColor(0x030608, 1);
+cont.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(0x030608, 0.016);
+const camera = new THREE.PerspectiveCamera(80, window.innerWidth/window.innerHeight, 0.01, 400);
+
+scene.add(new THREE.AmbientLight(0xffffff, 0.18));
+const lA = new THREE.PointLight(0x00cfff, 5, 90); scene.add(lA);
+const lB = new THREE.PointLight(0xff0088, 3, 70); lB.position.set(-12,-6,-6); scene.add(lB);
+const lC = new THREE.PointLight(0x00ffaa, 2.5, 65); lC.position.set(12,6,6); scene.add(lC);
+const lD = new THREE.PointLight(0xaa00ff, 2, 65); scene.add(lD);
+const lE = new THREE.PointLight(0xffaa00, 1.5, 65); scene.add(lE);
+
+// ── THEMES ──
+const THEMES = {
+  bio:    { t:[[0,0.2,0.07],[0,0.4,0.13],[0,1,0.53]],       teeth:[[0,1,0.27],[0,0.8,0.2]],         lc:0x00ff88 },
+  blood:  { t:[[0.2,0,0.02],[0.53,0,0.07],[1,0.13,0.26]],   teeth:[[1,0.2,0.33],[0.8,0.07,0.2]],    lc:0xff2244 },
+  void:   { t:[[0.07,0,0.13],[0.27,0,0.53],[0.67,0.27,1]],  teeth:[[0.73,0.33,1],[0.53,0.2,0.8]],  lc:0xaa44ff },
+  gold:   { t:[[0.13,0.07,0],[0.53,0.33,0],[1,0.8,0]],      teeth:[[1,0.87,0.13],[0.8,0.6,0]],      lc:0xffcc00 },
+  ice:    { t:[[0,0.07,0.13],[0,0.27,0.53],[0,0.8,1]],       teeth:[[0.27,0.93,1],[0,0.6,0.8]],      lc:0x00ccff },
+  plasma: { t:[[0,0.4,0.5],[0.4,0,0.6],[0,0.8,0.8]],        teeth:[[0,1,1],[0.6,0,0.8]],             lc:0x00ffff },
+  lava:   { t:[[0.07,0,0],[0.8,0.2,0],[1,0.53,0]],           teeth:[[1,0.6,0],[1,0.27,0]],            lc:0xff6600 },
+  mono:   { t:[[0.03,0.03,0.03],[0.2,0.2,0.2],[0.6,0.6,0.6]],teeth:[[0.73,0.73,0.73],[0.4,0.4,0.4]],lc:0x888888 },
+};
+let theme = 'plasma';
+let rainbowMode = true;
+let rainbowOffset = 0;
+
+function lerpRGB(a,b,f){return[a[0]+(b[0]-a[0])*f,a[1]+(b[1]-a[1])*f,a[2]+(b[2]-a[2])*f];}
+function hsvToRgb(h,s,v){
+  h=((h%1)+1)%1;
+  const i=Math.floor(h*6),f=h*6-i;
+  const p=v*(1-s),q=v*(1-f*s),t=v*(1-(1-f)*s);
+  switch(i%6){case 0:return[v,t,p];case 1:return[q,v,p];case 2:return[p,v,t];case 3:return[p,q,v];case 4:return[t,p,v];case 5:return[v,p,q];}
+}
+function themeColor(frac){
+  if(rainbowMode){const hue=((frac*P.rcyc)+rainbowOffset)%1;return hsvToRgb(hue,1,1);}
+  const th=THEMES[theme].t;
+  if(frac<0.5)return lerpRGB(th[0],th[1],frac*2);
+  return lerpRGB(th[1],th[2],(frac-0.5)*2);
+}
+function teethColor(frac,isBase){
+  if(rainbowMode){const hue=((frac*P.rcyc+0.18)+rainbowOffset)%1;return hsvToRgb(hue,1,isBase?0.6:1);}
+  return THEMES[theme].teeth[isBase?1:0];
+}
+
+// ── ORBIT ──
+const orb={theta:0.3,phi:1.2,radius:32,tT:0.3,tP:1.2,tR:32,panX:0,panY:0,tPX:0,tPY:0,drag:false,pan:false,lx:0,ly:0,fly:true};
+const cvs=renderer.domElement;
+cvs.addEventListener('mousedown',e=>{if(e.button===0)orb.drag=true;if(e.button===2)orb.pan=true;orb.lx=e.clientX;orb.ly=e.clientY;});
+window.addEventListener('mouseup',()=>{orb.drag=false;orb.pan=false;});
+window.addEventListener('mousemove',e=>{
+  if(orb.fly)return;
+  const dx=e.clientX-orb.lx,dy=e.clientY-orb.ly;
+  if(orb.drag){orb.tT-=dx*0.005;orb.tP=Math.max(0.05,Math.min(Math.PI-0.05,orb.tP+dy*0.005));}
+  if(orb.pan){orb.tPX-=dx*0.04;orb.tPY+=dy*0.04;}
+  orb.lx=e.clientX;orb.ly=e.clientY;
+});
+cvs.addEventListener('wheel',e=>{orb.tR=Math.max(2,Math.min(180,orb.tR+e.deltaY*0.04));});
+cvs.addEventListener('contextmenu',e=>e.preventDefault());
+let pd=0;
+cvs.addEventListener('touchstart',e=>{if(e.touches.length===1){orb.drag=true;orb.lx=e.touches[0].clientX;orb.ly=e.touches[0].clientY;}if(e.touches.length===2){orb.drag=false;pd=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);}},{passive:true});
+cvs.addEventListener('touchend',()=>{orb.drag=false;},{passive:true});
+cvs.addEventListener('touchmove',e=>{if(e.touches.length===1&&orb.drag){const dx=e.touches[0].clientX-orb.lx,dy=e.touches[0].clientY-orb.ly;orb.tT-=dx*0.005;orb.tP=Math.max(0.05,Math.min(Math.PI-0.05,orb.tP+dy*0.005));orb.lx=e.touches[0].clientX;orb.ly=e.touches[0].clientY;}if(e.touches.length===2){const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);orb.tR=Math.max(2,Math.min(180,orb.tR-(d-pd)*0.05));pd=d;}e.preventDefault();},{passive:false});
+
+// ── PARAMS ──
+const P={
+  radius:1.8, wall:0.2, loops:2, seg:120, rres:36,
+  loopR:9, tilt:0.25, squeeze:1, tw:4,
+  uspd:1, uamp:0.35, ufreq:2,
+  pulse:false, pamt:0.12,
+  trows:24, tcount:12, th:0.5, tw2:0.65,
+  tanim:false,
+  opa:0.9, emi:0.65, wire:false,
+  rspd:0.7, rcyc:5,
+  flyspd:1, camoff:0.4, fov:80,
+  chaos:0, crate:0.5, cburst:0.2,
+  autoChaos:true, mutate:true,
+  path:'fig8',
+};
+
+// ── CHAOS ENGINE ──────────────────────────────────────────────────────────────
+// Three chaos layers:
+// 1. Slow drift: Lorenz-attractor-inspired slow parameter wander
+// 2. Sudden bursts: random probability spikes that warp the path
+// 3. Path mutation: the figure-8 crossover point drifts unpredictably
+
+const C = {
+  // Lorenz-like slow wander
+  lx:0.1, ly:0, lz:0,
+  // Current live chaos value (actual instantaneous chaos)
+  live:0,
+  // Burst state
+  burstAmt:0, burstDecay:0.94,
+  // Path mutation offsets (drift over time)
+  mutX:0, mutY:0, mutZ:0,
+  mutVX:0.002, mutVY:0.001, mutVZ:0.0015,
+  // Cross-point wander
+  crossOffset:0, crossVel:0,
+  // Phase distortions (per-cycle random offsets applied to spine)
+  phaseA:0, phaseB:0, phaseC:0,
+  pVA:0, pVB:0, pVC:0,
+  // Scale breathe
+  scalePulse:1, scalePulseTarget:1,
+  // Last burst time
+  lastBurst: -999,
+};
+
+function updateChaos(dt, clockTime) {
+  const baseAmt = P.chaos;
+  const rate = P.crate;
+
+  if (!P.autoChaos && baseAmt < 0.01) { C.live = 0; return; }
+
+  // Auto-chaos: sine-wave the chaos amount if enabled
+  let effectiveAmt = baseAmt;
+  if (P.autoChaos) {
+    effectiveAmt = baseAmt + 0.15 * Math.sin(clockTime * 0.08) * Math.sin(clockTime * 0.051);
+    effectiveAmt = Math.max(0, Math.min(1, effectiveAmt));
+  }
+
+  // Lorenz-like wander (simplified, stays bounded)
+  const sigma = 2 + effectiveAmt * 8;
+  const rho = 1 + effectiveAmt * 5;
+  const beta = 0.5;
+  const ldt = dt * rate * 0.3;
+  const dlx = sigma * (C.ly - C.lx) * ldt;
+  const dly = (C.lx * (rho - C.lz) - C.ly) * ldt;
+  const dlz = (C.lx * C.ly - beta * C.lz) * ldt;
+  C.lx = Math.max(-2, Math.min(2, C.lx + dlx));
+  C.ly = Math.max(-2, Math.min(2, C.ly + dly));
+  C.lz = Math.max(-2, Math.min(2, C.lz + dlz));
+
+  // Random burst
+  if (P.autoChaos && Math.random() < P.cburst * dt * rate * 0.5) {
+    C.burstAmt = 0.5 + Math.random() * 0.5;
+    // Flash visual
+    const flash = document.getElementById('chaos-flash');
+    flash.style.opacity = C.burstAmt * 0.4;
+    setTimeout(() => flash.style.opacity = 0, 120);
+  }
+  C.burstAmt *= C.burstDecay;
+
+  // Path mutation drift
+  if (P.mutate) {
+    C.mutVX += (Math.random() - 0.5) * 0.0002 * effectiveAmt;
+    C.mutVY += (Math.random() - 0.5) * 0.0002 * effectiveAmt;
+    C.mutVZ += (Math.random() - 0.5) * 0.0002 * effectiveAmt;
+    C.mutVX = Math.max(-0.008, Math.min(0.008, C.mutVX));
+    C.mutVY = Math.max(-0.008, Math.min(0.008, C.mutVY));
+    C.mutVZ = Math.max(-0.008, Math.min(0.008, C.mutVZ));
+    C.mutX += C.mutVX * rate;
+    C.mutY += C.mutVY * rate;
+    C.mutZ += C.mutVZ * rate;
+    // Soft bounds — attractor pulls back
+    C.mutX -= C.mutX * 0.001;
+    C.mutY -= C.mutY * 0.001;
+    C.mutZ -= C.mutZ * 0.001;
+
+    // Cross-point wander for fig-8
+    C.crossVel += (Math.random() - 0.5) * 0.001 * effectiveAmt;
+    C.crossVel = Math.max(-0.02, Math.min(0.02, C.crossVel));
+    C.crossOffset += C.crossVel * rate;
+    C.crossOffset = Math.max(-0.4, Math.min(0.4, C.crossOffset));
+
+    // Phase distortions
+    C.pVA += (Math.random() - 0.5) * 0.0003 * effectiveAmt;
+    C.pVB += (Math.random() - 0.5) * 0.0003 * effectiveAmt;
+    C.pVC += (Math.random() - 0.5) * 0.0002 * effectiveAmt;
+    C.pVA = Math.max(-0.03, Math.min(0.03, C.pVA));
+    C.pVB = Math.max(-0.03, Math.min(0.03, C.pVB));
+    C.pVC = Math.max(-0.02, Math.min(0.02, C.pVC));
+    C.phaseA += C.pVA * rate;
+    C.phaseB += C.pVB * rate;
+    C.phaseC += C.pVC * rate;
+  }
+
+  // Scale breathe
+  if (Math.random() < 0.01 * effectiveAmt) {
+    C.scalePulseTarget = 0.85 + Math.random() * 0.3;
+  }
+  C.scalePulse += (C.scalePulseTarget - C.scalePulse) * 0.02;
+
+  C.live = Math.min(1, effectiveAmt + C.burstAmt * 0.4);
+
+  // Update UI
+  const pct = Math.round(C.live * 100);
+  document.getElementById('chaos-live').textContent = pct + '%';
+  document.getElementById('chaos-fill').style.width = pct + '%';
+  document.getElementById('chaos-meter').textContent = 'CHAOS: ' + pct + '%';
+  const hue = 180 + C.live * 180;
+  document.getElementById('chaos-fill').style.background =
+    `linear-gradient(90deg, hsl(${180},100%,50%), hsl(${hue},100%,60%))`;
+}
+
+// ── PATH FUNCTIONS ─────────────────────────────────────────────────────────────
+
+// Figure-8 lemniscate (Bernoulli): parametric form
+// x = a·cos(θ) / (1 + sin²(θ))
+// y = a·sin(θ)cos(θ) / (1 + sin²(θ))
+// Plus chaos perturbations and tilt for 3D
+function spineAt_fig8(frac, t) {
+  const a = frac * Math.PI * 2;  // 0..2π for one full figure-8
+
+  // Lemniscate of Bernoulli parametric
+  const denom = 1 + Math.sin(a) * Math.sin(a);
+  let bx = Math.cos(a) / denom;
+  let by = Math.sin(a) * Math.cos(a) / denom;
+
+  // Scale and squeeze
+  const R = P.loopR * C.scalePulse;
+  bx *= R * 2;
+  by *= R * P.squeeze;
+
+  // Tilt into 3D — use cross-offset for the crossover wander
+  const crossA = a + C.crossOffset;
+  const tilt = P.tilt;
+  const bz = by * Math.sin(tilt) + Math.sin(crossA * 0.5) * R * 0.15 * tilt;
+  const by3 = by * Math.cos(tilt);
+
+  // Undulation — two overlapping frequencies that stay periodic
+  const u1 = P.uamp * Math.sin(frac * Math.PI * 2 * P.ufreq - t * P.uspd + C.phaseA);
+  const u2 = P.uamp * 0.4 * Math.cos(frac * Math.PI * 2 * P.ufreq * 2 - t * P.uspd * 0.7 + C.phaseB);
+  const u3 = P.uamp * 0.2 * Math.sin(frac * Math.PI * 2 * P.ufreq * 3 + t * P.uspd * 0.5 + C.phaseC);
+
+  // Chaos displacement from Lorenz wander
+  const chaosDisp = P.chaos * C.live;
+  const cx2 = C.lx * chaosDisp * R * 0.25 + C.mutX * R * 0.5;
+  const cy2 = C.ly * chaosDisp * R * 0.25 + C.mutY * R * 0.5;
+  const cz2 = C.lz * chaosDisp * R * 0.2  + C.mutZ * R * 0.4;
+
+  return new THREE.Vector3(
+    bx + u1 + cx2,
+    by3 + u2 + cy2,
+    bz + u3 + cz2
+  );
+}
+
+// Circle (reference)
+function spineAt_circle(frac, t) {
+  const a = frac * Math.PI * 2;
+  const R = P.loopR * C.scalePulse;
+  const u1 = P.uamp * Math.sin(frac * Math.PI * 2 * P.ufreq - t * P.uspd + C.phaseA);
+  const u2 = P.uamp * 0.35 * Math.cos(frac * Math.PI * 2 * P.ufreq * 2 - t * P.uspd * 0.8 + C.phaseB);
+  const chaosDisp = P.chaos * C.live;
+  const r = R + u1 + u2 + C.mutX * R * 0.3;
+  return new THREE.Vector3(
+    Math.cos(a) * r + C.lx * chaosDisp * R * 0.2,
+    Math.sin(a) * Math.sin(P.tilt) * r + C.ly * chaosDisp * R * 0.2 + C.mutY * R * 0.3,
+    Math.sin(a) * Math.cos(P.tilt) * r + C.lz * chaosDisp * R * 0.15 + C.mutZ * R * 0.3
+  );
+}
+
+// Lissajous (3:2 ratio by default, chaos shifts ratio)
+function spineAt_lissajous(frac, t) {
+  const a = frac * Math.PI * 2;
+  const R = P.loopR * C.scalePulse;
+  const freqX = 2 + C.crossOffset * 0.5;
+  const freqY = 3 + C.crossOffset * 0.3;
+  const u1 = P.uamp * Math.sin(frac * Math.PI * 2 * P.ufreq - t * P.uspd + C.phaseA);
+  const chaosDisp = P.chaos * C.live;
+  return new THREE.Vector3(
+    Math.sin(freqX * a + t * 0.1 * P.uspd) * R + C.lx * chaosDisp * R * 0.2 + u1 + C.mutX * R * 0.4,
+    Math.sin(freqY * a) * R * P.squeeze + C.ly * chaosDisp * R * 0.2 + C.mutY * R * 0.4,
+    Math.cos(a * 1.5 + C.phaseB) * R * 0.5 * P.tilt * 2 + C.lz * chaosDisp * R * 0.15 + C.mutZ * R * 0.3
+  );
+}
+
+// Trefoil knot
+function spineAt_trefoil(frac, t) {
+  const a = frac * Math.PI * 2;
+  const R = P.loopR * C.scalePulse * 0.5;
+  const u1 = P.uamp * Math.sin(frac * Math.PI * 2 * P.ufreq - t * P.uspd + C.phaseA) * 0.5;
+  const chaosDisp = P.chaos * C.live;
+  const cx2 = C.lx * chaosDisp * R * 0.3 + C.mutX * R * 0.6;
+  const cy2 = C.ly * chaosDisp * R * 0.3 + C.mutY * R * 0.6;
+  const cz2 = C.lz * chaosDisp * R * 0.2 + C.mutZ * R * 0.4;
+  return new THREE.Vector3(
+    (Math.sin(a) + 2 * Math.sin(2 * a)) * R + cx2 + u1,
+    (Math.cos(a) - 2 * Math.cos(2 * a)) * R + cy2,
+    (-Math.sin(3 * a)) * R + cz2
+  );
+}
+
+function spineAt(frac, t) {
+  switch(P.path) {
+    case 'circle':   return spineAt_circle(frac, t);
+    case 'lissajous':return spineAt_lissajous(frac, t);
+    case 'trefoil':  return spineAt_trefoil(frac, t);
+    default:         return spineAt_fig8(frac, t);
+  }
+}
+
+const _tn=new THREE.Vector3(),_nn=new THREE.Vector3(),_bn=new THREE.Vector3();
+const _up=new THREE.Vector3(0,1,0);
+function frameAt(frac,t){
+  const eps=0.003;
+  const p=spineAt(frac,t);
+  const p2=spineAt((frac+eps)%1,t);
+  _tn.subVectors(p2,p).normalize();
+  const d=_tn.dot(_up);
+  _nn.set(_up.x-d*_tn.x,_up.y-d*_tn.y,_up.z-d*_tn.z);
+  if(_nn.lengthSq()<1e-6)_nn.set(1,0,0);
+  _nn.normalize();
+  _bn.crossVectors(_tn,_nn).normalize();
+  return{p,tn:_tn.clone(),nn:_nn.clone(),bn:_bn.clone()};
+}
+
+// ── SCENE ──
+const worm=new THREE.Group(); scene.add(worm);
+let tubeMesh=null, teethMeshes=[];
+
+// Starfield + chaos particles
+const starGeo=new THREE.BufferGeometry();
+const starPts=new Float32Array(1600*3);
+for(let i=0;i<1600;i++){starPts[i*3]=(Math.random()-0.5)*250;starPts[i*3+1]=(Math.random()-0.5)*250;starPts[i*3+2]=(Math.random()-0.5)*250;}
+starGeo.setAttribute('position',new THREE.BufferAttribute(starPts,3));
+const starMat=new THREE.PointsMaterial({color:0x004455,size:0.05,transparent:true,opacity:0.25});
+scene.add(new THREE.Points(starGeo,starMat));
+
+// ── BUILD TUBE ──
+function buildTube(){
+  if(tubeMesh){worm.remove(tubeMesh);tubeMesh.geometry.dispose();tubeMesh.material.dispose();tubeMesh=null;}
+  const S=P.loops*P.seg,R=P.rres;
+  const vCount=(S+1)*(R+1)*2;
+  const geo=new THREE.BufferGeometry();
+  geo.setAttribute('position',new THREE.BufferAttribute(new Float32Array(vCount*3),3));
+  geo.setAttribute('color',new THREE.BufferAttribute(new Float32Array(vCount*3),3));
+  const idx=[],OFF=(S+1)*(R+1);
+  for(let i=0;i<S;i++)for(let j=0;j<R;j++){
+    const a=i*(R+1)+j,b=(i+1)*(R+1)+j;
+    idx.push(a,b,a+1,b,b+1,a+1);
+    const ai=OFF+a,bi=OFF+b;
+    idx.push(ai,ai+1,bi,bi,ai+1,bi+1);
+  }
+  geo.setIndex(idx);
+  const mat=new THREE.MeshPhongMaterial({
+    vertexColors:true,transparent:true,opacity:P.opa,
+    shininess:180,side:THREE.DoubleSide,wireframe:P.wire,
+    emissive:new THREE.Color().setRGB(...THEMES[theme].t[0]),emissiveIntensity:P.emi,
+  });
+  tubeMesh=new THREE.Mesh(geo,mat);
+  worm.add(tubeMesh);
+}
+
+function updateTube(t){
+  if(!tubeMesh)return;
+  const S=P.loops*P.seg,R=P.rres,OFF=(S+1)*(R+1);
+  const pos=tubeMesh.geometry.attributes.position;
+  const col=tubeMesh.geometry.attributes.color;
+  for(let i=0;i<=S;i++){
+    const frac=(i/S)%1;
+    const{p,nn,bn}=frameAt(frac,t);
+    // Chaos-warped pulse
+    const chaosPulse=P.pulse?(1+P.pamt*(Math.sin(frac*Math.PI*2*P.ufreq*2-t*P.uspd*1.5)+C.burstAmt*Math.sin(frac*Math.PI*12+t*7)*0.5)):1;
+    const rO=(P.radius+P.wall)*chaosPulse;
+    const rI=P.radius*chaosPulse;
+    const twA=(frac*P.loops)*P.tw*Math.PI*2/P.loops + C.live*Math.sin(frac*Math.PI*8)*0.3;
+    const c=themeColor(frac);
+    for(let j=0;j<=R;j++){
+      const a=(j/R)*Math.PI*2+twA;
+      const cos=Math.cos(a),sin=Math.sin(a);
+      const nx=nn.x*cos+bn.x*sin,ny=nn.y*cos+bn.y*sin,nz=nn.z*cos+bn.z*sin;
+      const io=i*(R+1)+j,ii=OFF+io;
+      pos.setXYZ(io,p.x+nx*rO,p.y+ny*rO,p.z+nz*rO);
+      pos.setXYZ(ii,p.x+nx*rI,p.y+ny*rI,p.z+nz*rI);
+      col.setXYZ(io,c[0],c[1],c[2]);
+      col.setXYZ(ii,c[0]*0.38,c[1]*0.38,c[2]*0.38);
+    }
+  }
+  pos.needsUpdate=true;col.needsUpdate=true;
+  tubeMesh.geometry.computeVertexNormals();
+}
+
+// ── BUILD TEETH ──
+function buildTeeth(){
+  teethMeshes.forEach(m=>{worm.remove(m.mesh);m.mesh.geometry.dispose();m.mesh.material.dispose();});
+  teethMeshes=[];
+  if(P.trows===0)return;
+  const tc=THEMES[theme].teeth;
+  for(let row=0;row<P.trows;row++){
+    const rawFrac=(row+0.5)/P.trows;
+    const N=P.tcount;
+    const verts=new Float32Array(N*3*3),cols=new Float32Array(N*3*3),indices=[];
+    for(let k=0;k<N;k++){
+      const v=k*9;
+      cols[v]=tc[0][0];cols[v+1]=tc[0][1];cols[v+2]=tc[0][2];
+      cols[v+3]=tc[1][0];cols[v+4]=tc[1][1];cols[v+5]=tc[1][2];
+      cols[v+6]=tc[1][0];cols[v+7]=tc[1][1];cols[v+8]=tc[1][2];
+      indices.push(k*3,k*3+1,k*3+2);
+    }
+    const geo=new THREE.BufferGeometry();
+    geo.setAttribute('position',new THREE.BufferAttribute(verts,3));
+    geo.setAttribute('color',new THREE.BufferAttribute(cols,3));
+    geo.setIndex(indices);
+    const mat=new THREE.MeshPhongMaterial({vertexColors:true,transparent:true,opacity:P.opa,side:THREE.DoubleSide,shininess:280,emissive:new THREE.Color().setRGB(...tc[0]),emissiveIntensity:P.emi*2});
+    const mesh=new THREE.Mesh(geo,mat);
+    worm.add(mesh);
+    teethMeshes.push({mesh,rawFrac});
+  }
+}
+
+function updateTeeth(t){
+  teethMeshes.forEach(({mesh,rawFrac})=>{
+    const frac=P.tanim?(((rawFrac+t*P.uspd*0.012+C.live*0.02)%1)+1)%1:rawFrac;
+    const{p,nn,bn}=frameAt(frac,t);
+    const chaosPulse=P.pulse?(1+P.pamt*Math.sin(frac*Math.PI*2*P.ufreq*2-t*P.uspd*1.5)):1;
+    const rI=P.radius*chaosPulse;
+    const twA=(frac*P.loops)*P.tw*Math.PI*2/P.loops+C.live*Math.sin(frac*Math.PI*8)*0.3;
+    const N=P.tcount;
+    const pos=mesh.geometry.attributes.position,col=mesh.geometry.attributes.color;
+    if(rainbowMode){
+      const tipC=teethColor(frac,false),baseC=teethColor(frac,true);
+      for(let k=0;k<N;k++){col.setXYZ(k*3,tipC[0],tipC[1],tipC[2]);col.setXYZ(k*3+1,baseC[0],baseC[1],baseC[2]);col.setXYZ(k*3+2,baseC[0],baseC[1],baseC[2]);}
+      col.needsUpdate=true;
+      const hue=((frac*P.rcyc+0.15)+rainbowOffset)%1;
+      const ec=hsvToRgb(hue,1,1);
+      mesh.material.emissive.setRGB(...ec);
+    }
+    const fullSlice=(Math.PI*2)/N,baseHalf=fullSlice*P.tw2*0.5;
+    for(let k=0;k<N;k++){
+      const midA=(k/N)*Math.PI*2+twA;
+      const lA2=midA-baseHalf,rA=midA+baseHalf;
+      const cosL=Math.cos(lA2),sinL=Math.sin(lA2),cosR=Math.cos(rA),sinR=Math.sin(rA),cosM=Math.cos(midA),sinM=Math.sin(midA);
+      const nxL=nn.x*cosL+bn.x*sinL,nyL=nn.y*cosL+bn.y*sinL,nzL=nn.z*cosL+bn.z*sinL;
+      const nxR=nn.x*cosR+bn.x*sinR,nyR=nn.y*cosR+bn.y*sinR,nzR=nn.z*cosR+bn.z*sinR;
+      const nxM=nn.x*cosM+bn.x*sinM,nyM=nn.y*cosM+bn.y*sinM,nzM=nn.z*cosM+bn.z*sinM;
+      const tipR=Math.max(0,rI-P.th);
+      const v=k*3;
+      pos.setXYZ(v,p.x+nxM*tipR,p.y+nyM*tipR,p.z+nzM*tipR);
+      pos.setXYZ(v+1,p.x+nxL*rI,p.y+nyL*rI,p.z+nzL*rI);
+      pos.setXYZ(v+2,p.x+nxR*rI,p.y+nyR*rI,p.z+nzR*rI);
+    }
+    pos.needsUpdate=true;mesh.geometry.computeVertexNormals();
+  });
+}
+
+function rebuildAll(){buildTube();buildTeeth();}
+function applyTheme(){
+  if(rainbowMode){lA.color.set(0xffffff);}
+  else{
+    lA.color.set(THEMES[theme].lc);
+    if(tubeMesh)tubeMesh.material.emissive.setRGB(...THEMES[theme].t[0]);
+    teethMeshes.forEach(({mesh})=>mesh.material.emissive.setRGB(...THEMES[theme].teeth[0]));
+  }
+}
+
+// ── FLY-THROUGH ──
+let flyFrac=0;
+const camPos=new THREE.Vector3(),camTgt=new THREE.Vector3();
+
+function updateCamera(t){
+  const L=0.06;
+  if(orb.fly){
+    // Chaos speeds up/slows fly speed
+    const chaosSpeedMod = 1 + C.burstAmt * 1.5 + C.live * 0.3;
+    flyFrac=(flyFrac+P.flyspd*chaosSpeedMod*0.00035)%1;
+    const lookAhead=0.022+C.live*0.015;
+    const fa=frameAt(flyFrac,t);
+    const fb=frameAt((flyFrac+lookAhead)%1,t);
+    const off=P.camoff*(1+C.burstAmt*0.5);
+    // Chaos wobbles the camera offset direction
+    const wobble=C.live*0.3;
+    const cx=fa.nn.x*off+fa.bn.x*wobble*Math.sin(t*3.7);
+    const cy=fa.nn.y*off+fa.bn.y*wobble*Math.sin(t*3.7);
+    const cz=fa.nn.z*off+fa.bn.z*wobble*Math.sin(t*3.7);
+    camPos.set(fa.p.x+cx,fa.p.y+cy,fa.p.z+cz);
+    camTgt.set(fb.p.x,fb.p.y,fb.p.z);
+    // Faster lerp during bursts = snappier feel
+    camera.position.lerp(camPos,0.1+C.burstAmt*0.15);
+    camera.lookAt(camTgt);
+    camera.fov=P.fov+C.burstAmt*15+C.live*5;
+    camera.updateProjectionMatrix();
+    lA.position.copy(camera.position);
+    lD.position.set(fa.p.x+fa.bn.x*3,fa.p.y+fa.bn.y*3,fa.p.z+fa.bn.z*3);
+    return;
+  }
+  orb.theta+=(orb.tT-orb.theta)*L;orb.phi+=(orb.tP-orb.phi)*L;
+  orb.radius+=(orb.tR-orb.radius)*L;orb.panX+=(orb.tPX-orb.panX)*L;orb.panY+=(orb.tPY-orb.panY)*L;
+  camera.position.set(
+    orb.radius*Math.sin(orb.phi)*Math.sin(orb.theta)+orb.panX,
+    orb.radius*Math.cos(orb.phi)+orb.panY,
+    orb.radius*Math.sin(orb.phi)*Math.cos(orb.theta)
+  );
+  camera.lookAt(orb.panX,orb.panY,0);
+  camera.fov=P.fov;camera.updateProjectionMatrix();
+  lA.position.copy(camera.position);
+}
+
+// ── WIRE CONTROLS ──
+function wire(id,key,dec,mode){
+  const inp=document.getElementById(id),lbl=document.getElementById(id+'-val');
+  inp.addEventListener('input',()=>{
+    P[key]=parseFloat(inp.value);
+    if(lbl)lbl.textContent=P[key].toFixed(dec);
+    if(mode==='all')rebuildAll();
+    else if(mode==='teeth')buildTeeth();
+    else if(mode==='mat'){
+      if(tubeMesh){tubeMesh.material.opacity=P.opa;tubeMesh.material.emissiveIntensity=P.emi;tubeMesh.material.wireframe=P.wire;}
+      teethMeshes.forEach(({mesh})=>{mesh.material.opacity=P.opa;mesh.material.emissiveIntensity=P.emi*2;});
+    }
+  });
+  if(lbl)lbl.textContent=P[key].toFixed(dec);
+}
+
+wire('radius','radius',2,'all');wire('wall','wall',2,'all');
+wire('loops','loops',0,'all');wire('seg','seg',0,'all');wire('rres','rres',0,'all');
+wire('loopR','loopR',1,false);wire('tilt','tilt',2,false);wire('squeeze','squeeze',2,false);wire('tw','tw',2,false);
+wire('uspd','uspd',1,false);wire('uamp','uamp',2,false);wire('ufreq','ufreq',1,false);wire('pamt','pamt',2,false);
+wire('trows','trows',0,'teeth');wire('tcount','tcount',0,'teeth');wire('th','th',2,false);wire('tw2','tw2',2,false);
+wire('opa','opa',2,'mat');wire('emi','emi',2,'mat');
+wire('rspd','rspd',2,false);wire('rcyc','rcyc',1,false);
+wire('flyspd','flyspd',2,false);wire('camoff','camoff',2,false);wire('fov','fov',0,false);
+wire('chaos','chaos',2,false);wire('crate','crate',2,false);wire('cburst','cburst',2,false);
+
+function mkToggle(id,key,cb){
+  document.getElementById(id).addEventListener('click',()=>{
+    P[key]=!P[key];document.getElementById(id).classList.toggle('on',P[key]);if(cb)cb();
+  });
+}
+mkToggle('pulse-tp','pulse',null);mkToggle('tanim-tp','tanim',null);
+mkToggle('wire-tp','wire',()=>{if(tubeMesh)tubeMesh.material.wireframe=P.wire;});
+mkToggle('autochaos-tp','autoChaos',null);mkToggle('mutate-tp','mutate',null);
+
+document.getElementById('rainbow-btn').addEventListener('click',()=>{
+  rainbowMode=!rainbowMode;
+  document.getElementById('rainbow-btn').classList.toggle('active',rainbowMode);
+  applyTheme();
+});
+
+document.querySelectorAll('.ts').forEach(sw=>{
+  sw.addEventListener('click',()=>{
+    document.querySelectorAll('.ts').forEach(s=>s.classList.remove('active'));
+    sw.classList.add('active');theme=sw.dataset.theme;
+    if(!rainbowMode){rebuildAll();applyTheme();}
+  });
+});
+
+document.querySelectorAll('.pm').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.pm').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');P.path=btn.dataset.path;
+    // Lightly randomise chaos params on path switch for variety
+    C.phaseA=Math.random()*Math.PI*2;
+    C.phaseB=Math.random()*Math.PI*2;
+    C.crossOffset=(Math.random()-0.5)*0.3;
+    rebuildAll();
+  });
+});
+
+document.querySelectorAll('.ab').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.ab').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');orb.fly=false;
+    switch(btn.dataset.axis){
+      case 'free':break;
+      case 'side':orb.tP=Math.PI/2;orb.tT=0;orb.tR=38;break;
+      case 'top':orb.tP=0.05;orb.tT=0;orb.tR=38;break;
+      case 'fly':orb.fly=true;break;
+    }
+  });
+});
+
+document.getElementById('tbtn').addEventListener('click',()=>{
+  document.getElementById('panel').classList.toggle('hidden');
+});
+
+// ── INIT ──
+rebuildAll();
+rainbowMode=true;
+document.getElementById('rainbow-btn').classList.add('active');
+applyTheme();
+
+let clock=0, lastClock=0;
+(function loop(){
+  requestAnimationFrame(loop);
+  const dt=0.016;
+  clock+=dt;
+
+  const prevClock=lastClock;
+  lastClock=clock;
+
+  // Chaos engine update
+  updateChaos(dt, clock);
+
+  // Rainbow light cycling
+  if(rainbowMode){
+    rainbowOffset=(rainbowOffset+P.rspd*0.003*(1+C.live*0.5))%1;
+    const lc1=hsvToRgb(rainbowOffset,0.8,1);
+    const lc2=hsvToRgb((rainbowOffset+0.33)%1,0.8,1);
+    const lc3=hsvToRgb((rainbowOffset+0.66)%1,0.8,1);
+    lB.color.setRGB(...lc2);lC.color.setRGB(...lc3);
+    lE.color.setRGB(...hsvToRgb((rainbowOffset+0.15)%1,0.8,1));
+    // Chaos intensifies lights
+    lA.intensity=5+C.burstAmt*8;
+    lB.intensity=3+C.live*4;
+  }
+
+  // Star field colour shifts with chaos
+  starMat.color.setHSL(rainbowOffset, 0.5, 0.1+C.live*0.15);
+
+  updateTube(clock);
+  updateTeeth(clock);
+  updateCamera(clock);
+  renderer.render(scene,camera);
+})();
+
+window.addEventListener('resize',()=>{
+  camera.aspect=window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth,window.innerHeight);
+});
+</script>
+</body>
+</html>
